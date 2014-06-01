@@ -23,6 +23,15 @@
 -define(HW_ADDRESS, 16#64).
 -define(REMOTE_NODE, 'time_circuit@192.168.2.3').
 
+-define(DEBUG, true).
+-define(debug(String, Args),
+	case ?DEBUG of
+	    true  -> io:format("Trace: ~p: " ++ String,
+			       [?MODULE | Args]);
+	    _Else -> ok
+	end).
+-define(debug(String), ?debug(String, [])).
+
 -define(do(M, F, A, Distributed),
 	case Distributed of
 	    {distributed, true}  -> rpc:call(?REMOTE_NODE, M, F, A);
@@ -48,25 +57,25 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    io:format("start_link/0~n"),
+    ?debug("start_link/0~n"),
     start_link({distributed, false}).
 start_link({distributed, _Distributed}=D) ->
-    io:format("start_link/1, ~p~n", [D]),
+    ?debug("start_link/1, ~p~n", [D]),
     ?do(gen_server, start_link, [{global, ?SERVER}, ?MODULE, [], []], D).
 
 stop() ->
-    io:format("stop/0~n"),
+    ?debug("stop/0~n"),
     stop({distributed, false}).
 stop({distributed, _Distributed} = D) ->
-    io:format("stop/1, ~p~n", [D]),
+    ?debug("stop/1, ~p~n", [D]),
     ?do(gen_server, call, [{global, ?SERVER}, stop], D).
 
 set_destination_time(DestinationTime) ->
-    io:format("set_destination_time/1~n"),
+    ?debug("set_destination_time/1~n"),
     set_destination_time(DestinationTime, {distributed, false}).
 set_destination_time(DestinationTime, {distributed, _Distributed} = D) ->
-    io:format("set_destination_time/2 ~p~ndestination time: ~p~n",
-	      [D, DestinationTime]),
+    ?debug("set_destination_time/2 ~p~ndestination time: ~p~n",
+	   [D, DestinationTime]),
     ?do(gen_server, call, [{global, ?SERVER},
                            {set_destination_time, DestinationTime}], D).
 
@@ -112,7 +121,7 @@ handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 handle_call({set_destination_time, DT}, _From,
 	    #state{i2c_handle = Handle} = State) ->
-    io:format("Destination time: ~p~n", [DT]),
+    ?debug("Destination time: ~p~n", [DT]),
     {CT, Diff} = update_destination_time(DT, Handle),
     {ok, TRef} = timer:send_interval(100, check_time),
     {reply, ok, State#state{current_time=CT, destination_time=DT,
@@ -223,7 +232,7 @@ handle_info(Msg, State) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, #state{i2c_handle=Handle,
 			  timer_ref=TRef}=_State) ->
-    io:format("in terminate~n"),
+    ?debug("in terminate~n"),
     timer:cancel(TRef),
     i2c_interface:write_i2c_smbus_byte(Handle, 4, 0),
     i2c_interface:close_i2c_bus(Handle),
